@@ -253,3 +253,5 @@
 20240714	11:21:17	041482d2-de0f-4028-9013-f7f079403483	POST	undefined	/register
 20240714	11:21:58	f0a5cdaa-0bf1-4112-ba86-9ff23f94a25e	POST	undefined	/register
 20240714	11:23:11	bb7fc4ae-1e7f-468f-a59c-da247e39a6a8	POST	undefined	/register
+20240714	11:59:45	054d189a-5681-491d-9a46-cddd96b90abe	POST	undefined	/register
+20240714	12:00:55	813fba71-41cb-487d-9ee8-34d62f89f35c	POST	undefined	/register
