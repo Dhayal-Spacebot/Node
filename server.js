@@ -1,26 +1,30 @@
+require('dotenv').config();
 const express = require('express');
 const app = express();
 const path = require('path');
 const cors = require('cors');
+const corsOptions = require('./config/corsOptions')
 const { logger } = require('./middleware/logEvents');
 const errorHandler = require('./middleware/errorHandler');
+const verifyJwt = require('./middleware/verifyJwt');
 const PORT = process.env.PORT || 3500;
+const cookieParser = require('cookie-parser');
+const credentials = require('./middleware/credentials');
+const mongoose = require('mongoose');
+const connectDb = require('./config/dbConn');
+
+// connect to mongodb
+    connectDb();
+
 
 // custom middleware logger
 app.use(logger);
 
+// Handle options credentials check - before CORS!
+// and fetch cookies credentials requirement
+app.use(credentials);
+
 // Cross Origin Resource Sharing
-const whitelist = ['https://www.yoursite.com', 'http://127.0.0.1:5500', 'http://localhost:3500'];
-const corsOptions = {
-    origin: (origin, callback) => {
-        if (whitelist.indexOf(origin) !== -1 || !origin) {
-            callback(null, true)
-        } else {
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    optionsSuccessStatus: 200
-}
 app.use(cors(corsOptions));
 
 // built-in middleware to handle urlencoded data
@@ -31,21 +35,28 @@ app.use(express.urlencoded({ extended: false }));
 // built-in middleware for json 
 app.use(express.json());
 
+//middleware for cookies
+app.use(cookieParser());
+
 //serve static files
-app.use(express.static(path.join(__dirname, '/public')));
+app.use('/',express.static(path.join(__dirname, '/public')));
+app.use('/subdir',express.static(path.join(__dirname, '/public')));
 
-app.get('^/$|/index(.html)?', (req, res) => {
-    //res.sendFile('./views/index.html', { root: __dirname });
-    res.sendFile(path.join(__dirname, 'views', 'index.html'));
-});
+//routes
+app.use('/subdir', require('./routes/subdir'));
+app.use('/',require('./routes/root'));
+app.use('/register',require('./routes/api/register'));
+app.use('/auth',require('./routes/api/auth'));
+app.use('/refresh',require('./routes/api/refresh'));
+app.use('/logout',require('./routes/api/logout'));
 
-app.get('/new-page(.html)?', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'new-page.html'));
-});
 
-app.get('/old-page(.html)?', (req, res) => {
-    res.redirect(301, '/new-page.html'); //302 by default
-});
+app.use(verifyJwt)
+app.use('/employees',require('./routes/api/employee'));
+
+
+
+
 
 // Route handlers
 app.get('/hello(.html)?', (req, res, next) => {
@@ -87,4 +98,7 @@ app.all('*', (req, res) => {
 
 app.use(errorHandler);
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+mongoose.connection.once('open', () => {
+    console.log('Connected to Mongodb');
+    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+})
