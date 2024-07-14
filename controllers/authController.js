@@ -1,13 +1,6 @@
-const usersDB = {
-    users: require('../data/users.json'),
-    setUsers: function(data) {this.users = data}
-};
-
+const User = require('../data/User');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const path = require('path');
-const fsPromises = require('fs').promises;
-
 
 const handleLogin = async (req, res) => {
     const {user, pwd} = req.body;
@@ -15,11 +8,11 @@ const handleLogin = async (req, res) => {
         return res.status(400).json({"message": "username and password is required"});
 
     // verify user exist or not
-    const foundUser = usersDB.users.find(person => person.userName === user);
+    const foundUser = await User.findOne({username: user}).exec();
 
     if(!foundUser)
         return res.sendStatus(401); // unauthorized
-
+  
     try {
         const match = await bcrypt.compare(pwd, foundUser.password);
         const roles = Object.values(foundUser.roles);
@@ -28,28 +21,24 @@ const handleLogin = async (req, res) => {
             const accessToken = jwt.sign( 
                  {UserInfo: {
                     "roles": roles,
-                    "username": foundUser.userName
+                    "username": foundUser.username
                  }},
                  process.env.ACCESS_TOKEN_SECRET,
-                 {expiresIn: '30s'}
+                 {expiresIn: '300s'}
                 );
 
             const refreshToken = jwt.sign( 
-                    {"username": foundUser.userName},
+                    {"username": foundUser.username},
                     process.env.REFRESH_TOKEN_SECRET,
                     {expiresIn: '1d'}
                    );
 
             // save the refresh token with currently logged in user
+            foundUser.refreshToken = refreshToken;
+            const result = await foundUser.save();
+            console.log(result);
 
-            const otherUsers = usersDB.users.filter(person => person.userName !== user);
-            const currentUser = {...foundUser,refreshToken};
-            usersDB.setUsers([...otherUsers,currentUser]);
-            await fsPromises.writeFile(
-                path.join(__dirname,'..','data','users.json'),
-                JSON.stringify(usersDB.users)
-            )
-            res.cookie('jwt',refreshToken, {httpOnly: true,  sameSite: 'None', secure: true, maxAge: 24 * 60 * 60 * 1000});
+            res.cookie('jwt',refreshToken, {httpOnly: true,  sameSite: 'None',  maxAge: 24 * 60 * 60 * 1000});
             res.json({
                 'message': `user ${user} is logged in`,
                 accessToken
